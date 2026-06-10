@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VetWatch — public health alerts for veterinarians</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+        crossorigin="" />
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">vetwatch</span>
+      <span class="brand-cursor"></span>
+    </div>
+    <p class="tagline">
+      Public health surveillance for the practicing veterinarian.
+      Pull, by location, for the last <span id="days-label">30</span> days.
+    </p>
+  </header>
+
+  <section class="controls">
+    <div class="control-group">
+      <label class="control-label">state</label>
+      <div class="state-pills" id="state-pills">
+        <button class="pill" data-state="">all</button>
+        <button class="pill" data-state="AZ">AZ</button>
+        <button class="pill" data-state="CA">CA</button>
+        <button class="pill" data-state="NM">NM</button>
+        <button class="pill" data-state="NV">NV</button>
+        <button class="pill" data-state="TX">TX</button>
+      </div>
+    </div>
+    <div class="control-group">
+      <label class="control-label" for="county-input">county</label>
+      <input id="county-input" type="text" placeholder="optional, e.g. Pima" />
+    </div>
+    <div class="control-group">
+      <label class="control-label" for="days-input">days back</label>
+      <select id="days-input">
+        <option value="7">7</option>
+        <option value="14">14</option>
+        <option value="30" selected>30</option>
+        <option value="60">60</option>
+        <option value="90">90</option>
+        <option value="180">180</option>
+      </select>
+    </div>
+    <button id="run-button" class="run-button">scan</button>
+  </section>
+
+  <main class="layout">
+    <section class="map-pane">
+      <div id="map" aria-label="Map of geocoded alerts"></div>
+      <div class="map-legend">
+        <span><i class="legend-dot legend-outbreak"></i> outbreak</span>
+        <span><i class="legend-dot legend-recall"></i> recall</span>
+        <span><i class="legend-dot legend-regulatory"></i> regulatory</span>
+        <span><i class="legend-dot legend-advisory"></i> advisory</span>
+        <span><i class="legend-dot legend-other"></i> other</span>
+      </div>
+      <p class="map-note">
+        Markers placed at county centroid when available, state centroid otherwise.
+        Federal/national alerts are not plotted — see list below.
+      </p>
+    </section>
+
+    <section class="list-pane">
+      <div class="list-header">
+        <span class="list-title">alerts</span>
+        <span class="list-counter" id="list-counter">—</span>
+      </div>
+      <div id="results">
+        <div class="empty-state">
+          <p class="empty-headline">no scan run yet</p>
+          <p class="empty-sub">pick a state, hit <span class="kbd">scan</span>.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="statusbar" id="statusbar">
+    <span class="status-item">sources: <span id="status-sources">—</span></span>
+    <span class="status-item">mapped: <span id="status-mapped">—</span></span>
+    <span class="status-item">last scan: <span id="status-time">—</span></span>
+  </footer>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+          crossorigin=""></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>
