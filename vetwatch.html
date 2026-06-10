@@ -9,7 +9,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-  <link rel="stylesheet" href="https://unpkg.com/dc@4.2.7/dist/style/dc.min.css" />
   <style>
     :root {
       --ink:       #0B1729;
@@ -481,7 +480,7 @@
     }
     .chart-hint .reset-btn.visible { display: inline-block; }
 
-    /* dc.js chart restyling */
+    /* (chart styles removed — tiles replaced dc.js charts) */
     .dc-chart .axis path, .dc-chart .axis line {
       stroke: rgba(11,23,41,0.15);
     }
@@ -569,6 +568,122 @@
       .text-input, .select-input { min-width: 100%; }
       .demo-ribbon { right: 12px; top: 12px; }
       .loc-slot { min-width: 100%; }
+    }
+
+    /* Tiles row */
+    .tiles-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 20px;
+      padding: 0 40px 12px;
+    }
+    @media (max-width: 1024px) {
+      .tiles-row { grid-template-columns: 1fr; }
+    }
+    .tiles-note {
+      margin: 0 40px 60px;
+      font-size: 12px;
+      color: var(--ink-mute);
+      font-style: italic;
+    }
+    .tile-card {
+      padding: 22px 24px;
+      cursor: pointer;
+      transition: all .2s ease;
+      display: flex; flex-direction: column;
+      gap: 14px;
+      position: relative;
+    }
+    .tile-card:hover {
+      transform: translateY(-3px);
+      box-shadow: var(--shadow-pop);
+    }
+    .tile-card.active {
+      box-shadow: 0 0 0 2px var(--ink), var(--shadow-pop);
+    }
+    .tile-header {
+      display: flex; align-items: center; gap: 12px;
+    }
+    .tile-icon {
+      font-size: 28px;
+      flex-shrink: 0;
+    }
+    .tile-title {
+      font-family: var(--font-display);
+      font-size: 17px; font-weight: 600;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+      margin: 0;
+    }
+    .tile-sub {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      color: var(--ink-mute);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin: 2px 0 0;
+    }
+    .tile-count {
+      font-family: var(--font-display);
+      font-size: 44px;
+      font-weight: 700;
+      line-height: 1;
+      color: var(--ink);
+      letter-spacing: -0.03em;
+    }
+    .tile-count .unit {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--ink-mute);
+      margin-left: 6px;
+      font-family: var(--font-body);
+    }
+    .tile-latest {
+      flex: 1;
+      padding-top: 12px;
+      border-top: 1px solid var(--hairline);
+    }
+    .tile-latest-label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--ink-mute);
+      margin-bottom: 4px;
+    }
+    .tile-latest-content {
+      font-size: 13.5px;
+      color: var(--ink-soft);
+      line-height: 1.4;
+    }
+    .tile-latest-content .alert-link {
+      color: var(--ink);
+      font-weight: 600;
+      display: block;
+      margin-bottom: 2px;
+    }
+    .tile-latest-content .alert-age {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--ink-mute);
+    }
+    .tile-latest-content.empty {
+      color: var(--ink-faint);
+      font-style: italic;
+    }
+    .tile-action {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--ink-mute);
+      font-weight: 600;
+    }
+    .tile-card.active .tile-action {
+      color: var(--ink);
+    }
+    .tile-card.active .tile-action::before {
+      content: "✓ filtered · ";
     }
   </style>
 </head>
@@ -676,29 +791,60 @@
     </section>
   </main>
 
-  <section class="charts-row">
-    <div class="card chart-card">
-      <h3 class="chart-title">Category</h3>
-      <p class="chart-hint">Click a bar to filter <button class="reset-btn" data-chart="category">reset</button></p>
-      <div id="category-chart"></div>
+  <section class="tiles-row">
+    <div class="card tile-card" id="tile-companion" data-bucket="companion">
+      <div class="tile-header">
+        <span class="tile-icon">🐾</span>
+        <div>
+          <h3 class="tile-title">Companion animals</h3>
+          <p class="tile-sub">Dogs, cats, household pets</p>
+        </div>
+      </div>
+      <div class="tile-count" id="count-companion">—</div>
+      <div class="tile-latest">
+        <div class="tile-latest-label">Most recent</div>
+        <div class="tile-latest-content" id="latest-companion">—</div>
+      </div>
+      <div class="tile-action">Click to filter →</div>
     </div>
-    <div class="card chart-card">
-      <h3 class="chart-title">Source type</h3>
-      <p class="chart-hint">Click a bar to filter <button class="reset-btn" data-chart="source">reset</button></p>
-      <div id="source-chart"></div>
+
+    <div class="card tile-card" id="tile-large" data-bucket="large">
+      <div class="tile-header">
+        <span class="tile-icon">🐄</span>
+        <div>
+          <h3 class="tile-title">Large animals</h3>
+          <p class="tile-sub">Cattle, horses, poultry, sheep, swine</p>
+        </div>
+      </div>
+      <div class="tile-count" id="count-large">—</div>
+      <div class="tile-latest">
+        <div class="tile-latest-label">Most recent</div>
+        <div class="tile-latest-content" id="latest-large">—</div>
+      </div>
+      <div class="tile-action">Click to filter →</div>
     </div>
-    <div class="card chart-card">
-      <h3 class="chart-title">Daily activity</h3>
-      <p class="chart-hint">Drag to select a date range <button class="reset-btn" data-chart="timeline">reset</button></p>
-      <div id="timeline-chart"></div>
+
+    <div class="card tile-card" id="tile-wildlife" data-bucket="wildlife">
+      <div class="tile-header">
+        <span class="tile-icon">🦌</span>
+        <div>
+          <h3 class="tile-title">Wildlife</h3>
+          <p class="tile-sub">Deer, marine mammals, bats, wild birds</p>
+        </div>
+      </div>
+      <div class="tile-count" id="count-wildlife">—</div>
+      <div class="tile-latest">
+        <div class="tile-latest-label">Most recent</div>
+        <div class="tile-latest-content" id="latest-wildlife">—</div>
+      </div>
+      <div class="tile-action">Click to filter →</div>
     </div>
   </section>
+  <p class="tiles-note">Counts overlap by design — HPAI, screwworm, and wildlife rabies appear in all three buckets because they affect all three.</p>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
           integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="https://d3js.org/d3.v7.min.js"></script>
   <script src="https://unpkg.com/crossfilter2@1.5.4/crossfilter.min.js"></script>
-  <script src="https://unpkg.com/dc@4.2.7/dist/dc.min.js"></script>
 
   <script>
   // ============================================================
@@ -709,8 +855,10 @@
   //    this would be generated daily by the Python pipeline in the
   //    repo and committed to this file as JSON).
   //  - Crossfilter indexes the data into multiple dimensions.
-  //  - dc.js charts (category, source type, timeline) are linked
-  //    to crossfilter — clicking any chart filters everything.
+  //  - Three category tiles (Companion / Large Animals / Wildlife)
+  //    summarize counts and most-recent alerts per group, with click
+  //    to filter. HPAI, screwworm, and wildlife rabies appear in all
+  //    three groups because they clinically affect all three.
   //  - Leaflet map shows filtered alerts as markers.
   //  - Two-location selection adds an overlay: click "Set A",
   //    then click the map. Same for B. Circles draw at the
@@ -948,90 +1096,65 @@
   mapEl.classList.add('normal-cursor');
 
   // ============================================================
-  // Crossfilter / dc.js setup
+  // Crossfilter setup (used for id-based filtering, not charts)
   // ============================================================
   const ndx = crossfilter(MOCK_ALERTS);
+  const idDim = ndx.dimension(d => d.id);
 
-  const categoryDim = ndx.dimension(d => d.category);
-  const sourceDim   = ndx.dimension(d => d.source_type);
-  const dateDim     = ndx.dimension(d => d3.timeDay(new Date(d.published)));
-  const idDim       = ndx.dimension(d => d.id);  // used for state/county/location filters
+  // ============================================================
+  // Bucket classification
+  // HPAI, screwworm, and wildlife rabies appear in all three.
+  // ============================================================
+  const COMPANION_SPECIES = new Set(['dog','cat','pet','companion']);
+  const LARGE_SPECIES = new Set(['cattle','dairy','horses','equine','sheep','goats','swine','poultry']);
+  const WILDLIFE_SPECIES = new Set(['deer','elk','sea lion','elephant seal','sea otter','marine mammals','bat','bats','skunk','fox','foxes','raccoon','wildlife','wild birds']);
 
-  const categoryGroup = categoryDim.group().reduceCount();
-  const sourceGroup   = sourceDim.group().reduceCount();
-  const dateGroup     = dateDim.group().reduceCount();
+  function isHPAI(a) {
+    return /\b(hpai|h5n1|h5|avian (influenza|flu)|bird flu)\b/i.test(a.title + ' ' + (a.clinical_summary||''));
+  }
+  function isScrewworm(a) {
+    return /\b(screwworm|nws)\b/i.test(a.title + ' ' + (a.clinical_summary||''));
+  }
+  function isWildlifeRabies(a) {
+    const txt = (a.title + ' ' + (a.clinical_summary||'')).toLowerCase();
+    if (!/\brabies\b/.test(txt)) return false;
+    return /\b(skunk|fox|raccoon|bat|wildlife|wild)\b/.test(txt);
+  }
+  function bucketsFor(a) {
+    const result = new Set();
+    const sp = (a.species || []).map(s => s.toLowerCase());
 
-  const minDate = d3.timeDay.offset(d3.min(MOCK_ALERTS, d => new Date(d.published)), -1);
-  const maxDate = d3.timeDay.offset(d3.max(MOCK_ALERTS, d => new Date(d.published)),  1);
+    // Multi-bucket triggers (apply first)
+    if (isHPAI(a) || isScrewworm(a) || isWildlifeRabies(a)) {
+      result.add('companion');
+      result.add('large');
+      result.add('wildlife');
+      return result;
+    }
+    // Species-based assignment
+    for (const s of sp) {
+      if (COMPANION_SPECIES.has(s)) result.add('companion');
+      if (LARGE_SPECIES.has(s)) result.add('large');
+      if (WILDLIFE_SPECIES.has(s)) result.add('wildlife');
+    }
+    // Recall heuristics — pet food/drug recalls → companion
+    if (a.category === 'recall') {
+      const haystack = (a.title + ' ' + (a.clinical_summary||'')).toLowerCase();
+      if (/\b(pet food|dog food|cat food|kibble|companion)\b/.test(haystack)) result.add('companion');
+      // veterinary drug recalls are multi-species, assign all
+      if (sp.includes('multi-species')) {
+        result.add('companion');
+        result.add('large');
+      }
+    }
+    return result;
+  }
 
-  const categoryChart = new dc.RowChart('#category-chart');
-  categoryChart
-    .width(280).height(180)
-    .margins({top: 4, right: 10, bottom: 22, left: 4})
-    .dimension(categoryDim)
-    .group(categoryGroup)
-    .elasticX(true)
-    .gap(4)
-    .ordering(d => -d.value)
-    .colors(d3.scaleOrdinal()
-      .domain(['outbreak','recall','regulatory','advisory','other'])
-      .range(['#DC2626','#EA580C','#2563EB','#7C3AED','#64748B']))
-    .colorAccessor(d => d.key)
-    .xAxis().ticks(4);
+  // Pre-compute buckets on each alert
+  MOCK_ALERTS.forEach(a => { a._buckets = Array.from(bucketsFor(a)); });
 
-  const sourceChart = new dc.RowChart('#source-chart');
-  sourceChart
-    .width(280).height(180)
-    .margins({top: 4, right: 10, bottom: 22, left: 4})
-    .dimension(sourceDim)
-    .group(sourceGroup)
-    .elasticX(true)
-    .gap(4)
-    .ordering(d => -d.value)
-    .colors(d3.scaleOrdinal()
-      .domain(['state-ag','local','news','federal'])
-      .range(['#047857','#B45309','#6B7280','#1E40AF']))
-    .colorAccessor(d => d.key)
-    .xAxis().ticks(4);
-
-  const timelineChart = new dc.BarChart('#timeline-chart');
-  timelineChart
-    .width(420).height(180)
-    .margins({top: 8, right: 16, bottom: 30, left: 32})
-    .dimension(dateDim)
-    .group(dateGroup)
-    .x(d3.scaleTime().domain([minDate, maxDate]))
-    .xUnits(d3.timeDays)
-    .elasticY(true)
-    .brushOn(true)
-    .colors('#4338CA')
-    .yAxis().ticks(4);
-
-  // Render
-  dc.renderAll();
-
-  // Wire reset buttons on the chart cards
-  document.querySelectorAll('.reset-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const c = btn.dataset.chart;
-      if (c === 'category') categoryChart.filterAll();
-      else if (c === 'source') sourceChart.filterAll();
-      else if (c === 'timeline') timelineChart.filterAll();
-      dc.redrawAll();
-      refreshDerivedViews();
-    });
-  });
-
-  // Update reset-button visibility when filters change
-  [categoryChart, sourceChart, timelineChart].forEach(ch => {
-    ch.on('filtered', () => {
-      const cName = ch === categoryChart ? 'category' : ch === sourceChart ? 'source' : 'timeline';
-      const btn = document.querySelector(`.reset-btn[data-chart="${cName}"]`);
-      const isFiltered = ch.filters().length > 0;
-      btn.classList.toggle('visible', isFiltered);
-      refreshDerivedViews();
-    });
-  });
+  // Active bucket filter (one at a time, or null)
+  let activeBucket = null;
 
   // ============================================================
   // Filters: state / county / days → applied via idDim filter
@@ -1041,10 +1164,6 @@
       const a = MOCK_ALERTS.find(x => x.id === id);
       if (!a) return false;
       if (state.filterState && a.state && a.state !== state.filterState) return false;
-      // Federal alerts (state=null) pass any state filter
-      if (state.filterState && !a.state) {
-        // include federal items; they're national
-      }
       if (state.filterCounty && a.county && a.county.toLowerCase() !== state.filterCounty.toLowerCase()) return false;
       if (state.filterCounty && !a.county) return false;
       const days = state.filterDays;
@@ -1052,9 +1171,9 @@
         const age = (Date.now() - new Date(a.published).getTime()) / 86400000;
         if (age > days) return false;
       }
+      if (activeBucket && !a._buckets.includes(activeBucket)) return false;
       return true;
     });
-    dc.redrawAll();
     refreshDerivedViews();
   }
 
@@ -1225,7 +1344,57 @@
     renderMarkers();
     renderList();
     renderStats();
+    renderTiles();
   }
+
+  function renderTiles() {
+    // For each bucket, count alerts among CURRENTLY VISIBLE (after top filters,
+    // but ignoring the bucket filter itself — so counts don't go to 0 after clicking).
+    const visible = MOCK_ALERTS.filter(a => {
+      if (state.filterState && a.state && a.state !== state.filterState) return false;
+      if (state.filterCounty && a.county && a.county.toLowerCase() !== state.filterCounty.toLowerCase()) return false;
+      if (state.filterCounty && !a.county) return false;
+      const days = state.filterDays;
+      if (days) {
+        const age = (Date.now() - new Date(a.published).getTime()) / 86400000;
+        if (age > days) return false;
+      }
+      return true;
+    });
+
+    for (const bucket of ['companion', 'large', 'wildlife']) {
+      const inBucket = visible.filter(a => a._buckets.includes(bucket));
+      inBucket.sort((a, b) => new Date(b.published) - new Date(a.published));
+      const countEl = document.getElementById(`count-${bucket}`);
+      const latestEl = document.getElementById(`latest-${bucket}`);
+      countEl.innerHTML = inBucket.length + ' <span class="unit">' + (inBucket.length === 1 ? 'alert' : 'alerts') + '</span>';
+
+      if (inBucket.length === 0) {
+        latestEl.className = 'tile-latest-content empty';
+        latestEl.textContent = 'No alerts in this category for current filters.';
+      } else {
+        const latest = inBucket[0];
+        const age = Math.round((Date.now() - new Date(latest.published).getTime()) / 86400000);
+        const ageStr = age === 0 ? 'today' : age === 1 ? '1 day ago' : age + ' days ago';
+        latestEl.className = 'tile-latest-content';
+        latestEl.innerHTML = `
+          <span class="alert-link">${esc(latest.title)}</span>
+          <span class="alert-age">${ageStr}${latest.county ? ' · ' + esc(latest.county) + ' Co.' : latest.state ? ' · ' + esc(latest.state) : ''}</span>`;
+      }
+
+      const tile = document.getElementById(`tile-${bucket}`);
+      tile.classList.toggle('active', activeBucket === bucket);
+    }
+  }
+
+  // Wire tile clicks
+  document.querySelectorAll('.tile-card').forEach(tile => {
+    tile.addEventListener('click', () => {
+      const bucket = tile.dataset.bucket;
+      activeBucket = (activeBucket === bucket) ? null : bucket;
+      applyTopFilters();
+    });
+  });
 
   // ============================================================
   // Location selection UX
