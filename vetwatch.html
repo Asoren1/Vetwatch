@@ -1,0 +1,1333 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VetWatch — public health alerts for veterinarians</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <link rel="stylesheet" href="https://unpkg.com/dc@4.2.7/dist/style/dc.min.css" />
+  <style>
+    :root {
+      --ink:       #0B1729;
+      --ink-soft:  #1F2937;
+      --ink-mute:  #475569;
+      --ink-faint: #94A3B8;
+
+      --glass:        rgba(255, 255, 255, 0.62);
+      --glass-strong: rgba(255, 255, 255, 0.82);
+      --glass-deep:   rgba(255, 255, 255, 0.94);
+      --hairline:     rgba(11, 23, 41, 0.10);
+      --hairline-strong: rgba(11, 23, 41, 0.18);
+
+      --c-outbreak:   #DC2626;
+      --c-recall:     #EA580C;
+      --c-regulatory: #2563EB;
+      --c-advisory:   #7C3AED;
+      --c-other:      #64748B;
+
+      --c-federal:  #1E40AF;
+      --c-state-ag: #047857;
+      --c-local:    #B45309;
+      --c-news:     #6B7280;
+
+      --c-loc-a: #2563EB;
+      --c-loc-b: #EA580C;
+
+      --font-display: 'Fraunces', Georgia, serif;
+      --font-body:    'Inter', system-ui, -apple-system, sans-serif;
+      --font-mono:    'JetBrains Mono', ui-monospace, monospace;
+
+      --radius-lg: 20px;
+      --radius-md: 14px;
+      --radius-sm: 10px;
+      --shadow-card: 0 1px 2px rgba(11,23,41,0.05), 0 8px 32px rgba(11,23,41,0.10);
+      --shadow-pop:  0 1px 2px rgba(11,23,41,0.07), 0 20px 48px rgba(11,23,41,0.16);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0; padding: 0;
+      color: var(--ink);
+      font-family: var(--font-body);
+      font-size: 15px; line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+      background: #E8ECF7;
+    }
+
+    body::before {
+      content: "";
+      position: fixed; inset: 0; z-index: -2;
+      background:
+        radial-gradient(at 12% 18%,  rgba(99, 102, 241, 0.55) 0px, transparent 42%),
+        radial-gradient(at 85% 15%,  rgba(14, 165, 233, 0.50) 0px, transparent 45%),
+        radial-gradient(at 90% 68%,  rgba(249, 115, 22, 0.38) 0px, transparent 42%),
+        radial-gradient(at 15% 82%,  rgba(20, 184, 166, 0.45) 0px, transparent 45%),
+        radial-gradient(at 55% 50%,  rgba(168, 85, 247, 0.32) 0px, transparent 50%);
+      filter: saturate(1.15);
+      animation: drift 32s ease-in-out infinite alternate;
+    }
+    @keyframes drift {
+      0%   { background-position: 0% 0%,   0% 0%,   0% 0%,   0% 0%,   0% 0%; }
+      100% { background-position: 6% -4%, -6% 4%,  4% -3%,  -4% 6%,   3% 2%; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      body::before { animation: none; }
+    }
+
+    .demo-ribbon {
+      position: fixed; top: 16px; right: 16px; z-index: 1100;
+      padding: 7px 14px;
+      background: var(--glass-deep);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--hairline);
+      border-radius: 100px;
+      box-shadow: var(--shadow-card);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--ink-soft);
+      letter-spacing: 0.04em;
+    }
+    .demo-ribbon::before {
+      content: "";
+      display: inline-block;
+      width: 6px; height: 6px;
+      background: #F59E0B;
+      border-radius: 50%;
+      margin-right: 7px;
+      vertical-align: 1px;
+      box-shadow: 0 0 0 3px rgba(245,158,11,0.2);
+    }
+
+    .hero { padding: 48px 40px 24px; }
+    .brand { display: flex; align-items: center; gap: 14px; margin-bottom: 24px; }
+    .brand-mark {
+      width: 46px; height: 46px; border-radius: 14px;
+      background: linear-gradient(135deg, #0F172A 0%, #334155 100%);
+      color: white;
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--font-display); font-weight: 700; font-size: 24px;
+      box-shadow: var(--shadow-card);
+    }
+    .brand-name {
+      font-family: var(--font-display); font-size: 28px; font-weight: 600;
+      letter-spacing: -0.02em; color: var(--ink);
+    }
+    .brand-sub {
+      font-family: var(--font-mono); font-size: 11px; text-transform: uppercase;
+      letter-spacing: 0.12em; color: var(--ink-mute); margin-top: 1px;
+    }
+    .hero-headline {
+      font-family: var(--font-display); font-weight: 600;
+      font-size: clamp(28px, 4vw, 44px); line-height: 1.1;
+      letter-spacing: -0.025em; margin: 0 0 12px; color: var(--ink);
+      max-width: 780px;
+    }
+    .hero-headline em {
+      font-style: italic;
+      background: linear-gradient(135deg, #4338CA 0%, #0891B2 50%, #059669 100%);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .hero-sub {
+      font-size: 17px; color: var(--ink-soft); margin: 0;
+      max-width: 640px;
+    }
+
+    .filter-card {
+      background: var(--glass-strong);
+      backdrop-filter: blur(28px) saturate(1.4);
+      -webkit-backdrop-filter: blur(28px) saturate(1.4);
+      border: 1px solid var(--hairline);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-card);
+      padding: 18px 22px;
+      margin: 0 40px 12px;
+      display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-end;
+    }
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field-label {
+      font-family: var(--font-mono); font-size: 10.5px;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--ink-mute); font-weight: 500;
+    }
+    .pills { display: flex; gap: 4px; flex-wrap: wrap; }
+    .pill {
+      font-family: var(--font-body); font-size: 13px; font-weight: 500;
+      padding: 7px 14px;
+      background: rgba(255,255,255,0.7);
+      border: 1px solid var(--hairline);
+      color: var(--ink-soft);
+      border-radius: 100px; cursor: pointer;
+      transition: all .18s ease;
+    }
+    .pill:hover { background: white; border-color: var(--hairline-strong); }
+    .pill[aria-pressed="true"] {
+      background: var(--ink); color: white; border-color: var(--ink);
+      box-shadow: 0 3px 10px rgba(11,23,41,0.22);
+    }
+    .text-input, .select-input {
+      font-family: var(--font-body); font-size: 13.5px;
+      padding: 7px 14px;
+      background: rgba(255,255,255,0.7);
+      border: 1px solid var(--hairline); color: var(--ink);
+      border-radius: 100px; min-width: 180px;
+      transition: all .18s ease;
+    }
+    .text-input:focus, .select-input:focus {
+      outline: none; background: white; border-color: var(--ink);
+      box-shadow: 0 0 0 4px rgba(11,23,41,0.08);
+    }
+    .text-input::placeholder { color: var(--ink-faint); }
+
+    /* Location selection card */
+    .locations-card {
+      background: var(--glass-strong);
+      backdrop-filter: blur(28px) saturate(1.4);
+      -webkit-backdrop-filter: blur(28px) saturate(1.4);
+      border: 1px solid var(--hairline);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-card);
+      padding: 16px 22px;
+      margin: 0 40px 20px;
+      display: flex; flex-wrap: wrap; gap: 18px; align-items: center;
+    }
+    .loc-slot {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 14px;
+      background: rgba(255,255,255,0.7);
+      border: 1px solid var(--hairline);
+      border-radius: var(--radius-md);
+      min-width: 280px;
+      flex: 1;
+    }
+    .loc-pin {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      border: 3px solid white;
+      box-shadow: 0 0 0 1px rgba(11,23,41,0.2);
+      flex-shrink: 0;
+    }
+    .loc-pin.a { background: var(--c-loc-a); }
+    .loc-pin.b { background: var(--c-loc-b); }
+    .loc-info { flex: 1; min-width: 0; }
+    .loc-title {
+      font-family: var(--font-mono); font-size: 10px;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--ink-mute); font-weight: 600; margin-bottom: 2px;
+    }
+    .loc-value {
+      font-size: 13.5px; font-weight: 500; color: var(--ink);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .loc-value.empty { color: var(--ink-faint); font-style: italic; }
+    .loc-action {
+      font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+      padding: 5px 10px;
+      background: var(--ink); color: white;
+      border: none; border-radius: 100px; cursor: pointer;
+      transition: all .15s ease;
+      text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .loc-action:hover { background: #1E293B; }
+    .loc-action.muted {
+      background: rgba(255,255,255,0.9); color: var(--ink-soft);
+      border: 1px solid var(--hairline);
+    }
+    .loc-action.muted:hover { background: white; }
+    .loc-action.active {
+      background: var(--c-loc-a); animation: glow 1.5s ease-in-out infinite;
+    }
+    .loc-action.active.b { background: var(--c-loc-b); }
+    @keyframes glow {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(37,99,235,0.5); }
+      50% { box-shadow: 0 0 0 8px rgba(37,99,235,0); }
+    }
+
+    .radius-field {
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .clear-all {
+      font-family: var(--font-mono); font-size: 11px;
+      padding: 7px 14px;
+      background: transparent; color: var(--ink-soft);
+      border: 1px solid var(--hairline); border-radius: 100px;
+      cursor: pointer;
+      text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .clear-all:hover { background: rgba(255,255,255,0.7); border-color: var(--hairline-strong); }
+
+    /* Layout */
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+      gap: 20px;
+      padding: 0 40px 20px;
+    }
+    @media (max-width: 1024px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: var(--glass-strong);
+      backdrop-filter: blur(28px) saturate(1.4);
+      -webkit-backdrop-filter: blur(28px) saturate(1.4);
+      border: 1px solid var(--hairline);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-card);
+      overflow: hidden;
+    }
+
+    .map-card { display: flex; flex-direction: column; min-height: 520px; }
+    .map-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 16px 22px;
+      border-bottom: 1px solid var(--hairline);
+      gap: 16px; flex-wrap: wrap;
+    }
+    .map-title {
+      font-family: var(--font-display); font-size: 17px; font-weight: 600;
+      color: var(--ink); letter-spacing: -0.01em;
+    }
+    .legend { display: flex; flex-wrap: wrap; gap: 12px; }
+    .legend-item {
+      font-family: var(--font-mono); font-size: 10px;
+      text-transform: uppercase; letter-spacing: 0.05em;
+      color: var(--ink-mute);
+      display: inline-flex; align-items: center; gap: 5px;
+    }
+    .legend-dot {
+      width: 9px; height: 9px; border-radius: 50%;
+      box-shadow: 0 0 0 1.5px white, 0 1px 2px rgba(0,0,0,0.2);
+    }
+    .legend-dot.cat-outbreak { background: var(--c-outbreak); }
+    .legend-dot.cat-recall { background: var(--c-recall); }
+    .legend-dot.cat-regulatory { background: var(--c-regulatory); }
+    .legend-dot.cat-advisory { background: var(--c-advisory); }
+    .legend-dot.cat-other { background: var(--c-other); }
+
+    #map { flex: 1; min-height: 420px; background: #E0E7F0; cursor: crosshair; }
+    #map.normal-cursor { cursor: grab; }
+    #map.normal-cursor:active { cursor: grabbing; }
+    .leaflet-container { font-family: var(--font-body); background: #E0E7F0; }
+
+    .map-stats {
+      padding: 12px 22px;
+      border-top: 1px solid var(--hairline);
+      background: rgba(255,255,255,0.5);
+      display: flex; gap: 24px; flex-wrap: wrap;
+      font-size: 13px;
+    }
+    .stat-pill {
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    .stat-pill .stat-marker {
+      width: 12px; height: 12px; border-radius: 50%;
+      border: 2px solid white; box-shadow: 0 0 0 1px rgba(11,23,41,0.2);
+    }
+    .stat-pill .stat-marker.a { background: var(--c-loc-a); }
+    .stat-pill .stat-marker.b { background: var(--c-loc-b); }
+    .stat-pill .stat-marker.both {
+      background: linear-gradient(90deg, var(--c-loc-a) 50%, var(--c-loc-b) 50%);
+    }
+    .stat-count {
+      font-family: var(--font-mono); font-weight: 600;
+      color: var(--ink);
+    }
+    .stat-label { color: var(--ink-mute); }
+
+    .list-card { display: flex; flex-direction: column; max-height: calc(100vh - 200px); }
+    .list-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 16px 22px;
+      border-bottom: 1px solid var(--hairline);
+    }
+    .list-title {
+      font-family: var(--font-display); font-size: 17px; font-weight: 600;
+      color: var(--ink); letter-spacing: -0.01em;
+    }
+    .list-counter {
+      font-family: var(--font-mono); font-size: 12px;
+      color: var(--ink-mute); background: rgba(11,23,41,0.06);
+      padding: 3px 10px; border-radius: 100px;
+    }
+    #results { flex: 1; overflow-y: auto; padding: 4px 4px 12px; }
+    #results::-webkit-scrollbar { width: 8px; }
+    #results::-webkit-scrollbar-thumb { background: rgba(11,23,41,0.15); border-radius: 4px; }
+
+    .alert {
+      margin: 10px 16px;
+      padding: 14px 16px;
+      background: var(--glass-deep);
+      border: 1px solid var(--hairline);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: all .2s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .alert::before {
+      content: "";
+      position: absolute; left: 0; top: 0; bottom: 0;
+      width: 3px; background: var(--c-other);
+    }
+    .alert.cat-outbreak::before { background: var(--c-outbreak); }
+    .alert.cat-recall::before { background: var(--c-recall); }
+    .alert.cat-regulatory::before { background: var(--c-regulatory); }
+    .alert.cat-advisory::before { background: var(--c-advisory); }
+    .alert:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-pop);
+      border-color: var(--hairline-strong);
+    }
+    .alert.highlighted {
+      box-shadow: 0 0 0 3px rgba(67,56,202,0.3), var(--shadow-pop);
+      transform: translateY(-2px);
+    }
+    .alert-meta {
+      display: flex; gap: 12px; align-items: center;
+      font-family: var(--font-mono); font-size: 10.5px;
+      color: var(--ink-mute); letter-spacing: 0.04em;
+      margin-bottom: 6px;
+      flex-wrap: wrap;
+    }
+    .alert-date { color: var(--ink-soft); font-weight: 600; }
+    .alert-source { display: inline-flex; align-items: center; gap: 5px; }
+    .source-dot { width: 6px; height: 6px; border-radius: 50%; }
+    .source-dot.federal { background: var(--c-federal); }
+    .source-dot.state-ag { background: var(--c-state-ag); }
+    .source-dot.local { background: var(--c-local); }
+    .source-dot.news { background: var(--c-news); }
+    .alert-loc-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 1px 7px;
+      border-radius: 100px;
+      font-weight: 700;
+      font-size: 9.5px;
+    }
+    .alert-loc-badge.near-a { background: rgba(37,99,235,0.12); color: var(--c-loc-a); }
+    .alert-loc-badge.near-b { background: rgba(234,88,12,0.12); color: var(--c-loc-b); }
+    .alert-loc-badge.both {
+      background: linear-gradient(90deg, rgba(37,99,235,0.12), rgba(234,88,12,0.12));
+      color: var(--ink-soft);
+    }
+
+    .alert-title {
+      font-family: var(--font-display); font-weight: 600;
+      font-size: 16px; line-height: 1.3;
+      letter-spacing: -0.01em;
+      margin: 0 0 6px; color: var(--ink);
+    }
+    .alert-title a {
+      color: inherit; text-decoration: none;
+      background: linear-gradient(transparent 62%, rgba(67,56,202,0.16) 62%);
+    }
+    .alert-title a:hover {
+      background: linear-gradient(transparent 60%, rgba(67,56,202,0.32) 60%);
+    }
+    .alert-summary {
+      font-size: 13.5px; color: var(--ink-soft);
+      margin: 0 0 10px; line-height: 1.5;
+    }
+    .chips { display: flex; flex-wrap: wrap; gap: 5px; }
+    .chip {
+      font-family: var(--font-mono); font-size: 10px; font-weight: 500;
+      padding: 2px 9px; border-radius: 100px;
+      background: rgba(11,23,41,0.05); color: var(--ink-soft);
+      text-transform: lowercase; letter-spacing: 0.02em;
+    }
+    .chip.cat-outbreak { background: rgba(220,38,38,0.1); color: var(--c-outbreak); }
+    .chip.cat-recall { background: rgba(234,88,12,0.1); color: var(--c-recall); }
+    .chip.cat-regulatory { background: rgba(37,99,235,0.1); color: var(--c-regulatory); }
+    .chip.cat-advisory { background: rgba(124,58,237,0.1); color: var(--c-advisory); }
+    .chip.county { background: rgba(11,23,41,0.08); color: var(--ink); font-weight: 600; }
+
+    /* Charts row */
+    .charts-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1.4fr;
+      gap: 20px;
+      padding: 0 40px 60px;
+    }
+    @media (max-width: 1024px) {
+      .charts-row { grid-template-columns: 1fr; }
+    }
+    .chart-card { padding: 18px 22px; }
+    .chart-title {
+      font-family: var(--font-display); font-size: 15.5px; font-weight: 600;
+      color: var(--ink); letter-spacing: -0.01em;
+      margin: 0 0 4px;
+    }
+    .chart-hint {
+      font-size: 11.5px; color: var(--ink-mute); margin: 0 0 12px;
+    }
+    .chart-hint .reset-btn {
+      display: none;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      padding: 1px 8px;
+      margin-left: 6px;
+      background: var(--ink);
+      color: white;
+      border: none;
+      border-radius: 100px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .chart-hint .reset-btn.visible { display: inline-block; }
+
+    /* dc.js chart restyling */
+    .dc-chart .axis path, .dc-chart .axis line {
+      stroke: rgba(11,23,41,0.15);
+    }
+    .dc-chart .axis text {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      fill: var(--ink-mute);
+    }
+    .dc-chart .row text {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      fill: var(--ink);
+      font-weight: 500;
+    }
+    .dc-chart .row rect { stroke: white; stroke-width: 1.5px; }
+    .dc-chart .row.deselected rect { opacity: 0.3; }
+
+    /* Leaflet markers */
+    .vw-marker {
+      width: 22px; height: 22px; border-radius: 50%;
+      border: 3px solid white;
+      box-shadow: 0 0 0 1px rgba(11,23,41,0.25), 0 4px 10px rgba(11,23,41,0.3);
+      transition: transform .15s ease;
+    }
+    .vw-marker:hover { transform: scale(1.25); cursor: pointer; }
+    .vw-marker.cat-outbreak { background: var(--c-outbreak); }
+    .vw-marker.cat-recall { background: var(--c-recall); }
+    .vw-marker.cat-regulatory { background: var(--c-regulatory); }
+    .vw-marker.cat-advisory { background: var(--c-advisory); }
+    .vw-marker.cat-other { background: var(--c-other); }
+    .vw-marker.state-fallback {
+      border-style: dashed; opacity: 0.85;
+    }
+
+    .loc-marker {
+      width: 32px; height: 32px;
+      border-radius: 50% 50% 50% 0;
+      transform: rotate(-45deg);
+      border: 3px solid white;
+      box-shadow: 0 4px 12px rgba(11,23,41,0.4);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .loc-marker::after {
+      content: attr(data-label);
+      transform: rotate(45deg);
+      color: white; font-weight: 700;
+      font-family: var(--font-display);
+      font-size: 16px;
+    }
+    .loc-marker.a { background: var(--c-loc-a); }
+    .loc-marker.b { background: var(--c-loc-b); }
+
+    .leaflet-popup-content-wrapper {
+      border-radius: var(--radius-md);
+      background: var(--glass-deep);
+      backdrop-filter: blur(20px);
+      box-shadow: var(--shadow-pop);
+    }
+    .leaflet-popup-tip { background: var(--glass-deep); }
+    .leaflet-popup-content {
+      font-family: var(--font-body); font-size: 13px;
+      margin: 14px 16px; line-height: 1.45;
+    }
+    .popup-title {
+      font-family: var(--font-display); font-weight: 600;
+      font-size: 14.5px; margin-bottom: 4px; color: var(--ink);
+    }
+    .popup-meta {
+      font-family: var(--font-mono); font-size: 10px;
+      color: var(--ink-mute);
+      text-transform: uppercase; letter-spacing: 0.04em;
+      margin-bottom: 6px;
+    }
+    .popup-link {
+      display: inline-block; margin-top: 8px;
+      color: #4338CA; font-weight: 600;
+      text-decoration: none; font-size: 12.5px;
+    }
+    .popup-link:hover { text-decoration: underline; }
+
+    @media (max-width: 720px) {
+      .hero { padding: 32px 20px 16px; }
+      .filter-card, .locations-card { margin-left: 20px; margin-right: 20px; padding: 14px 16px; gap: 14px; }
+      .layout, .charts-row { padding: 0 20px 40px; gap: 14px; }
+      .text-input, .select-input { min-width: 100%; }
+      .demo-ribbon { right: 12px; top: 12px; }
+      .loc-slot { min-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="demo-ribbon" id="demo-ribbon">demo · snapshot data</div>
+
+  <section class="hero">
+    <div class="brand">
+      <div class="brand-mark">V</div>
+      <div>
+        <div class="brand-name">VetWatch</div>
+        <div class="brand-sub">public health surveillance</div>
+      </div>
+    </div>
+    <h1 class="hero-headline">
+      What's happening for your patients, <em>right now,</em> near you.
+    </h1>
+    <p class="hero-sub">
+      A single feed for federal recalls, state animal-health alerts, county outbreaks, and aggregated reporting — distilled to two-sentence clinical summaries.
+    </p>
+  </section>
+
+  <section class="filter-card">
+    <div class="field">
+      <label class="field-label">state</label>
+      <div class="pills" id="state-pills">
+        <button class="pill" data-state="" aria-pressed="true">all</button>
+        <button class="pill" data-state="AZ">AZ</button>
+        <button class="pill" data-state="CA">CA</button>
+        <button class="pill" data-state="NM">NM</button>
+        <button class="pill" data-state="NV">NV</button>
+        <button class="pill" data-state="TX">TX</button>
+      </div>
+    </div>
+    <div class="field">
+      <label class="field-label" for="county-input">county (optional)</label>
+      <input id="county-input" class="text-input" type="text" placeholder="e.g. Pima, Zavala, San Mateo" />
+    </div>
+    <div class="field">
+      <label class="field-label" for="days-input">window</label>
+      <select id="days-input" class="select-input">
+        <option value="30">last 30 days</option>
+        <option value="60">last 60 days</option>
+        <option value="90" selected>last 90 days</option>
+      </select>
+    </div>
+  </section>
+
+  <section class="locations-card">
+    <div class="loc-slot">
+      <div class="loc-pin a"></div>
+      <div class="loc-info">
+        <div class="loc-title">Location A</div>
+        <div class="loc-value empty" id="loc-a-value">click "Set A", then click the map</div>
+      </div>
+      <button class="loc-action" id="set-a-btn">Set A</button>
+    </div>
+    <div class="loc-slot">
+      <div class="loc-pin b"></div>
+      <div class="loc-info">
+        <div class="loc-title">Location B</div>
+        <div class="loc-value empty" id="loc-b-value">optional · for comparison</div>
+      </div>
+      <button class="loc-action muted" id="set-b-btn">Set B</button>
+    </div>
+    <div class="field radius-field">
+      <label class="field-label" for="radius-input">radius</label>
+      <select id="radius-input" class="select-input" style="min-width: 130px">
+        <option value="50">50 miles</option>
+        <option value="100">100 miles</option>
+        <option value="150" selected>150 miles</option>
+        <option value="250">250 miles</option>
+        <option value="500">500 miles</option>
+      </select>
+    </div>
+    <button class="clear-all" id="clear-locations">Clear</button>
+  </section>
+
+  <main class="layout">
+    <section class="card map-card">
+      <div class="map-header">
+        <div class="map-title">Map</div>
+        <div class="legend">
+          <span class="legend-item"><span class="legend-dot cat-outbreak"></span>outbreak</span>
+          <span class="legend-item"><span class="legend-dot cat-recall"></span>recall</span>
+          <span class="legend-item"><span class="legend-dot cat-regulatory"></span>regulatory</span>
+          <span class="legend-item"><span class="legend-dot cat-advisory"></span>advisory</span>
+        </div>
+      </div>
+      <div id="map"></div>
+      <div class="map-stats" id="map-stats">
+        <span class="stat-pill"><span class="stat-marker a"></span><span class="stat-count" id="stat-a">—</span><span class="stat-label">within 150mi of A</span></span>
+        <span class="stat-pill"><span class="stat-marker b"></span><span class="stat-count" id="stat-b">—</span><span class="stat-label">within 150mi of B</span></span>
+        <span class="stat-pill"><span class="stat-marker both"></span><span class="stat-count" id="stat-both">—</span><span class="stat-label">in both</span></span>
+      </div>
+    </section>
+
+    <section class="card list-card">
+      <div class="list-header">
+        <div class="list-title">Alerts</div>
+        <div class="list-counter" id="list-counter">—</div>
+      </div>
+      <div id="results"></div>
+    </section>
+  </main>
+
+  <section class="charts-row">
+    <div class="card chart-card">
+      <h3 class="chart-title">Category</h3>
+      <p class="chart-hint">Click a bar to filter <button class="reset-btn" data-chart="category">reset</button></p>
+      <div id="category-chart"></div>
+    </div>
+    <div class="card chart-card">
+      <h3 class="chart-title">Source type</h3>
+      <p class="chart-hint">Click a bar to filter <button class="reset-btn" data-chart="source">reset</button></p>
+      <div id="source-chart"></div>
+    </div>
+    <div class="card chart-card">
+      <h3 class="chart-title">Daily activity</h3>
+      <p class="chart-hint">Drag to select a date range <button class="reset-btn" data-chart="timeline">reset</button></p>
+      <div id="timeline-chart"></div>
+    </div>
+  </section>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://unpkg.com/crossfilter2@1.5.4/crossfilter.min.js"></script>
+  <script src="https://unpkg.com/dc@4.2.7/dist/dc.min.js"></script>
+
+  <script>
+  // ============================================================
+  // VetWatch — single-file demo
+  // 
+  // Architecture:
+  //  - Mock alert data baked in below (in a production version,
+  //    this would be generated daily by the Python pipeline in the
+  //    repo and committed to this file as JSON).
+  //  - Crossfilter indexes the data into multiple dimensions.
+  //  - dc.js charts (category, source type, timeline) are linked
+  //    to crossfilter — clicking any chart filters everything.
+  //  - Leaflet map shows filtered alerts as markers.
+  //  - Two-location selection adds an overlay: click "Set A",
+  //    then click the map. Same for B. Circles draw at the
+  //    chosen radius; alerts inside get badge-tagged in the list.
+  // ============================================================
+
+  const MOCK_ALERTS = [
+    // ---------- Texas ----------
+    { id: 'tx1', title: 'New World Screwworm Confirmed in Zavala County Calf',
+      source: 'TAHC', source_type: 'state-ag',
+      url: 'https://www.tahc.texas.gov/news/2026/2026-06-03_NWS_InitialCase.pdf',
+      published: '2026-06-03', state: 'TX', county: 'Zavala',
+      latitude: 28.86, longitude: -99.76, geo_resolution: 'county',
+      category: 'outbreak', species: ['cattle'],
+      clinical_summary: 'First US-confirmed New World screwworm case of 2026, in a Zavala County calf. Watch for maggot-infested wounds — myiasis lesions, foul odor, fly clustering on open injuries. Report suspect cases to TAHC immediately.' },
+    { id: 'tx2', title: 'Highly Pathogenic Avian Influenza Detected in Texas Dairy Herd',
+      source: 'TAHC', source_type: 'state-ag',
+      url: 'https://www.tahc.texas.gov/news/2026/2026-06-02_HPAI-Dairy.pdf',
+      published: '2026-06-02', state: 'TX', county: null,
+      latitude: 31.05, longitude: -97.56, geo_resolution: 'state',
+      category: 'outbreak', species: ['dairy', 'cattle'],
+      clinical_summary: 'HPAI H5N1 detected in a Texas dairy herd. Watch for decreased milk production, off-feed, abnormal milk consistency. Affected milk must be diverted from commercial tank; biosecurity protocols apply.' },
+    { id: 'tx3', title: 'TAHC Executive Director Order — Gillespie, Kerr, Kimble Counties',
+      source: 'TAHC', source_type: 'state-ag',
+      url: 'https://www.tahc.texas.gov/regs/pdf/2026-06-09_NWS_EDO.pdf',
+      published: '2026-06-09', state: 'TX', county: 'Gillespie',
+      latitude: 30.31, longitude: -98.95, geo_resolution: 'county',
+      category: 'regulatory', species: ['cattle', 'horses'],
+      clinical_summary: 'Animal movement restrictions established for Gillespie, Kerr, and Kimble counties as part of NWS surveillance zone expansion. Inspect livestock for wounds before issuing CVIs.' },
+    { id: 'tx4', title: 'TAHC Modified Order — La Salle and Webb Counties',
+      source: 'TAHC', source_type: 'state-ag',
+      url: 'https://www.tahc.texas.gov/regs/pdf/2026-06-09_NWS_EDO-ModifiedZoneLaSalleWebb.pdf',
+      published: '2026-06-09', state: 'TX', county: 'La Salle',
+      latitude: 28.35, longitude: -99.10, geo_resolution: 'county',
+      category: 'regulatory', species: ['cattle'],
+      clinical_summary: 'Modified movement restrictions for La Salle and Webb counties in response to NWS detection. Check TAHC for current requirements before any interstate movement.' },
+    { id: 'tx5', title: 'Anthrax Confirmed in a Briscoe County Steer',
+      source: 'TAHC', source_type: 'state-ag',
+      url: 'https://www.tahc.texas.gov/news/2026/2026-01-06_Anthrax_Briscoe.pdf',
+      published: '2026-05-22', state: 'TX', county: 'Briscoe',
+      latitude: 34.53, longitude: -101.21, geo_resolution: 'county',
+      category: 'outbreak', species: ['cattle'],
+      clinical_summary: 'Anthrax confirmed in Briscoe County beef cattle. Classic presentation is sudden death with bloody discharge from orifices — do not perform field necropsy. Vaccinate at-risk herds in the Texas anthrax triangle.' },
+    { id: 'tx6', title: 'Equine Infectious Anemia Confirmed in Wichita County Horse',
+      source: 'TAHC', source_type: 'state-ag',
+      url: 'https://www.tahc.texas.gov/news/2026/2026-04-15_EIA-Wichita.pdf',
+      published: '2026-04-15', state: 'TX', county: 'Wichita',
+      latitude: 33.99, longitude: -98.70, geo_resolution: 'county',
+      category: 'outbreak', species: ['horses'],
+      clinical_summary: 'EIA confirmed in a Wichita County horse. Premises quarantined. Review Coggins test schedules for at-risk horses in the area; biosecurity around hematophagous insects critical.' },
+    { id: 'tx7', title: 'Chronic Wasting Disease Detected in Kerr County Deer Breeding Facility',
+      source: 'TAHC', source_type: 'state-ag',
+      url: 'https://www.tahc.texas.gov/news/2026/2026-04-22_CWD_Kerr.pdf',
+      published: '2026-04-22', state: 'TX', county: 'Kerr',
+      latitude: 30.06, longitude: -99.35, geo_resolution: 'county',
+      category: 'outbreak', species: ['deer'],
+      clinical_summary: 'CWD detected at a Kerr County deer breeding facility. Movement restrictions extend to nearby susceptible species premises. Counsel hunting clients on CWD testing requirements.' },
+    { id: 'tx8', title: 'Dallas County backyard flock confirmed positive for H5N1',
+      source: 'TAHC', source_type: 'state-ag',
+      url: 'https://www.tahc.texas.gov/news/2026/2026-05-03_HPAI_Dallas.pdf',
+      published: '2026-05-03', state: 'TX', county: 'Dallas',
+      latitude: 32.78, longitude: -96.80, geo_resolution: 'county',
+      category: 'outbreak', species: ['poultry'],
+      clinical_summary: 'HPAI H5N1 in a small Dallas County backyard flock. Counsel poultry-owning clients about biosecurity, wild bird exposure, and signs (sudden death, neurological signs, decreased egg production).' },
+    { id: 'tx9', title: 'CIDRAP: Texas dairy HPAI cases continue, federal response intensifies',
+      source: 'CIDRAP (Avian Influenza)', source_type: 'news',
+      url: 'https://www.cidrap.umn.edu/avian-influenza-bird-flu/texas-dairy-hpai',
+      published: '2026-06-05', state: 'TX', county: null,
+      latitude: 31.05, longitude: -97.56, geo_resolution: 'state',
+      category: 'outbreak', species: ['dairy', 'cattle'],
+      clinical_summary: 'CIDRAP summarizes continuing HPAI activity in Texas dairy, including federal coordination updates. Review PPE protocols for staff handling potentially-exposed animals; influenza-like illness reporting in clinic staff.' },
+    { id: 'tx10', title: 'New World Screwworm sterile fly production facility groundbreaking, Edinburg TX',
+      source: 'TAHC', source_type: 'state-ag',
+      url: 'https://www.tahc.texas.gov/news/2026/2026-04-17_NWS-ProductionFacility.pdf',
+      published: '2026-04-17', state: 'TX', county: 'Hidalgo',
+      latitude: 26.30, longitude: -98.16, geo_resolution: 'state',
+      category: 'advisory', species: ['cattle'],
+      clinical_summary: 'USDA and Texas break ground on a new sterile fly production facility at Moore Air Base. Production expected by November 2027; expanded NWS response capacity in coming years.' },
+
+    // ---------- California ----------
+    { id: 'ca1', title: 'HPAI confirmed in Tulare County dairy herd',
+      source: 'CDFA Animal Health', source_type: 'state-ag',
+      url: 'https://www.cdfa.ca.gov/AHFSS/',
+      published: '2026-05-10', state: 'CA', county: 'Tulare',
+      latitude: 36.22, longitude: -118.79, geo_resolution: 'state',
+      category: 'outbreak', species: ['dairy', 'cattle'],
+      clinical_summary: 'HPAI H5N1 confirmed in a Tulare County dairy. Affected milk diverted from commercial tank. Statewide dairy biosecurity guidance reinforced; PPE and visitor logs.' },
+    { id: 'ca2', title: 'H5N1 confirmed in northern elephant seals at Año Nuevo (San Mateo County)',
+      source: 'UC Davis Institute for Pandemic Insights', source_type: 'local',
+      url: 'https://pandemicinsights.ucdavis.edu/h5-marine-outbreak',
+      published: '2026-04-15', state: 'CA', county: 'San Mateo',
+      latitude: 37.42, longitude: -122.36, geo_resolution: 'county',
+      category: 'outbreak', species: ['elephant seal'],
+      clinical_summary: 'Multiple HPAI H5N1 cases in northern elephant seals at Año Nuevo State Park. Counsel clients to keep pets away from beached marine mammals; report sick/dead animals to NOAA stranding hotline.' },
+    { id: 'ca3', title: 'California sea lion HPAI H5N1 confirmed, San Luis Obispo County',
+      source: 'UC Davis Institute for Pandemic Insights', source_type: 'local',
+      url: 'https://pandemicinsights.ucdavis.edu/h5-marine-outbreak',
+      published: '2026-03-26', state: 'CA', county: 'San Luis Obispo',
+      latitude: 35.39, longitude: -120.45, geo_resolution: 'county',
+      category: 'outbreak', species: ['sea lion'],
+      clinical_summary: 'First HPAI H5N1 case in a marine mammal in San Luis Obispo County, expanding the geographic range south. Avoid contact with stranded marine mammals; report to NOAA West Coast Stranding Hotline.' },
+    { id: 'ca4', title: 'LA County DPH issues bat exposure rabies advisory',
+      source: 'LA County DPH', source_type: 'local',
+      url: 'http://publichealth.lacounty.gov/vet/',
+      published: '2026-05-15', state: 'CA', county: 'Los Angeles',
+      latitude: 34.20, longitude: -118.26, geo_resolution: 'county',
+      category: 'advisory', species: ['dog', 'cat'],
+      clinical_summary: 'Increased bat exposures reported in residential LA County. Verify rabies vaccination status on intake for any patient with potential bat exposure; submit suspect bats for testing.' },
+    { id: 'ca5', title: 'CIDRAP: More California marine mammals confirmed with H5N1',
+      source: 'CIDRAP (Avian Influenza)', source_type: 'news',
+      url: 'https://www.cidrap.umn.edu/avian-influenza-bird-flu/more-california-marine-mammals',
+      published: '2026-05-30', state: 'CA', county: 'San Mateo',
+      latitude: 37.42, longitude: -122.36, geo_resolution: 'county',
+      category: 'outbreak', species: ['sea lion', 'elephant seal', 'sea otter'],
+      clinical_summary: 'Marine mammal H5N1 outbreak ongoing in central California. Outbreak now includes elephant seals, California sea lions, and at least one southern sea otter.' },
+
+    // ---------- Arizona ----------
+    { id: 'az1', title: 'Rabies confirmed in skunk, Pima County',
+      source: 'Pima County Health', source_type: 'local',
+      url: 'https://www.pima.gov/2031/Health',
+      published: '2026-05-20', state: 'AZ', county: 'Pima',
+      latitude: 32.10, longitude: -111.79, geo_resolution: 'county',
+      category: 'outbreak', species: ['wildlife', 'skunk'],
+      clinical_summary: 'Rabies-positive skunk confirmed in northwest Pima County. Counsel clients about pet rabies vaccination, avoiding wildlife contact; review post-exposure protocols for unvaccinated pets.' },
+    { id: 'az2', title: 'Vesicular Stomatitis Virus detected in Cochise County horse',
+      source: 'AZ Dept of Agriculture', source_type: 'state-ag',
+      url: 'https://agriculture.az.gov/',
+      published: '2026-04-12', state: 'AZ', county: 'Cochise',
+      latitude: 31.88, longitude: -109.75, geo_resolution: 'county',
+      category: 'outbreak', species: ['horses'],
+      clinical_summary: 'VSV confirmed in a Cochise County horse. Watch for vesicles and ulcers on tongue, lips, coronary band. Premises quarantined; movement restrictions in effect.' },
+    { id: 'az3', title: 'Maricopa County: West Nile equine cases reported, biosecurity advisory',
+      source: 'Maricopa County Public Health', source_type: 'local',
+      url: 'https://www.maricopa.gov/',
+      published: '2026-06-01', state: 'AZ', county: 'Maricopa',
+      latitude: 33.35, longitude: -112.49, geo_resolution: 'county',
+      category: 'advisory', species: ['horses'],
+      clinical_summary: 'Multiple WNV-positive horses in Maricopa County early this season. Verify equine vaccination status; mosquito control measures and stalling at dusk recommended.' },
+    { id: 'az4', title: 'Valley Fever uptick in dogs, southern Arizona',
+      source: 'Pima County Health', source_type: 'local',
+      url: 'https://www.pima.gov/2031/Health',
+      published: '2026-05-08', state: 'AZ', county: 'Pima',
+      latitude: 32.10, longitude: -111.79, geo_resolution: 'county',
+      category: 'advisory', species: ['dog'],
+      clinical_summary: 'Above-baseline Valley Fever (coccidioidomycosis) cases in canine patients across southern AZ. Include cocci in differentials for respiratory or systemic illness in dogs with outdoor exposure.' },
+
+    // ---------- New Mexico ----------
+    { id: 'nm1', title: 'EIA confirmed in Chaves County horses',
+      source: 'NM Livestock Board', source_type: 'state-ag',
+      url: 'https://nmlbonline.com/',
+      published: '2026-05-08', state: 'NM', county: 'Chaves',
+      latitude: 33.36, longitude: -104.47, geo_resolution: 'county',
+      category: 'outbreak', species: ['horses'],
+      clinical_summary: 'EIA confirmed in two horses at a Chaves County premises. Premises quarantined pending Coggins testing of all contact horses. Review insect control protocols.' },
+    { id: 'nm2', title: 'Hantavirus advisory: increased deer mouse activity, San Juan County',
+      source: 'NM Department of Health', source_type: 'local',
+      url: 'https://nmhealth.org/',
+      published: '2026-04-30', state: 'NM', county: 'San Juan',
+      latitude: 36.51, longitude: -108.32, geo_resolution: 'county',
+      category: 'advisory', species: ['public health'],
+      clinical_summary: 'Increased deer mouse activity in northwestern NM. Counsel clients about safe rodent cleanup practices (wet methods, no sweeping); zoonotic risk for owners of barn/outdoor cats.' },
+    { id: 'nm3', title: 'CIDRAP: Rabies in wildlife continues across NM/AZ border counties',
+      source: 'CIDRAP', source_type: 'news',
+      url: 'https://www.cidrap.umn.edu/',
+      published: '2026-05-18', state: 'NM', county: null,
+      latitude: 34.41, longitude: -106.11, geo_resolution: 'state',
+      category: 'outbreak', species: ['wildlife'],
+      clinical_summary: 'Sustained wildlife rabies activity across NM/AZ border counties, mostly skunks and gray foxes. Review small animal rabies vaccination compliance and post-exposure protocols.' },
+
+    // ---------- Nevada ----------
+    { id: 'nv1', title: 'VSV confirmed in Clark County horse',
+      source: 'NV Dept of Agriculture', source_type: 'state-ag',
+      url: 'https://agri.nv.gov/Animals/Animal_Disease/Animal_Disease_Updates/',
+      published: '2026-04-22', state: 'NV', county: 'Clark',
+      latitude: 36.21, longitude: -115.01, geo_resolution: 'county',
+      category: 'outbreak', species: ['horses'],
+      clinical_summary: 'Vesicular Stomatitis Virus confirmed in a Clark County horse. Premises quarantined. Affected horses isolated; check oral and coronary band lesions on all on-premises equines.' },
+    { id: 'nv2', title: 'NV Dept of Ag: enhanced poultry biosecurity reminder for spring migration',
+      source: 'NV Dept of Agriculture', source_type: 'state-ag',
+      url: 'https://agri.nv.gov/Animals/Animal_Disease/Animal_Disease_Updates/',
+      published: '2026-05-05', state: 'NV', county: null,
+      latitude: 38.81, longitude: -116.42, geo_resolution: 'state',
+      category: 'advisory', species: ['poultry'],
+      clinical_summary: 'Statewide reminder for poultry biosecurity during spring waterfowl migration. Restrict wild bird access to feed/water; clients with backyard flocks need elevated awareness.' },
+
+    // ---------- Federal / National ----------
+    { id: 'fed1', title: 'Acme Pet Foods recall: Premium Beef Recipe — Salmonella contamination',
+      source: 'FDA Food Recalls', source_type: 'federal',
+      url: 'https://www.fda.gov/safety/recalls-market-withdrawals-safety-alerts',
+      published: '2026-05-28', state: null, county: null,
+      latitude: null, longitude: null, geo_resolution: null,
+      category: 'recall', species: ['dog'],
+      clinical_summary: 'Class II recall of a national-brand dog food line, distribution across 38 states. Pet owners reporting vomiting, diarrhea, lethargy. Cross-check clinic inventory for affected lot numbers.' },
+    { id: 'fed2', title: 'FDA recalls veterinary injectable: labeling error, sterility',
+      source: 'FDA Drug Recalls', source_type: 'federal',
+      url: 'https://www.fda.gov/safety/recalls-market-withdrawals-safety-alerts',
+      published: '2026-04-15', state: null, county: null,
+      latitude: null, longitude: null, geo_resolution: null,
+      category: 'recall', species: ['multi-species'],
+      clinical_summary: 'Class II recall of a veterinary injectable due to mislabeling and sterility assurance issues. Review clinic pharmacy inventory for affected lots; contact FDA for return/replacement.' },
+    { id: 'fed3', title: 'CIDRAP: First CWD case at National Elk Refuge (Wyoming)',
+      source: 'CIDRAP', source_type: 'news',
+      url: 'https://www.cidrap.umn.edu/',
+      published: '2026-05-15', state: null, county: null,
+      latitude: null, longitude: null, geo_resolution: null,
+      category: 'outbreak', species: ['elk', 'deer'],
+      clinical_summary: 'First CWD detection in the National Elk Refuge resident herd, Jackson WY. Implications for hunter-harvested cervids brought back from Wyoming; counsel clients on safe carcass handling.' },
+  ];
+
+  // ============================================================
+  // State
+  // ============================================================
+  const state = {
+    filterState: '',
+    filterCounty: '',
+    filterDays: 90,
+    locA: null,    // {lat, lng}
+    locB: null,
+    radiusMi: 150,
+    setMode: null, // 'a', 'b', or null
+  };
+
+  // ============================================================
+  // Map setup
+  // ============================================================
+  const map = L.map('map', { zoomControl: true }).setView([34.5, -108.0], 5);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    maxZoom: 19,
+    attribution: '© OpenStreetMap, © CARTO',
+  }).addTo(map);
+  const markerLayer = L.layerGroup().addTo(map);
+  const overlayLayer = L.layerGroup().addTo(map);  // for circles and A/B pins
+
+  const mapEl = document.getElementById('map');
+  mapEl.classList.add('normal-cursor');
+
+  // ============================================================
+  // Crossfilter / dc.js setup
+  // ============================================================
+  const ndx = crossfilter(MOCK_ALERTS);
+
+  const categoryDim = ndx.dimension(d => d.category);
+  const sourceDim   = ndx.dimension(d => d.source_type);
+  const dateDim     = ndx.dimension(d => d3.timeDay(new Date(d.published)));
+  const idDim       = ndx.dimension(d => d.id);  // used for state/county/location filters
+
+  const categoryGroup = categoryDim.group().reduceCount();
+  const sourceGroup   = sourceDim.group().reduceCount();
+  const dateGroup     = dateDim.group().reduceCount();
+
+  const minDate = d3.timeDay.offset(d3.min(MOCK_ALERTS, d => new Date(d.published)), -1);
+  const maxDate = d3.timeDay.offset(d3.max(MOCK_ALERTS, d => new Date(d.published)),  1);
+
+  const categoryChart = new dc.RowChart('#category-chart');
+  categoryChart
+    .width(280).height(180)
+    .margins({top: 4, right: 10, bottom: 22, left: 4})
+    .dimension(categoryDim)
+    .group(categoryGroup)
+    .elasticX(true)
+    .gap(4)
+    .ordering(d => -d.value)
+    .colors(d3.scaleOrdinal()
+      .domain(['outbreak','recall','regulatory','advisory','other'])
+      .range(['#DC2626','#EA580C','#2563EB','#7C3AED','#64748B']))
+    .colorAccessor(d => d.key)
+    .xAxis().ticks(4);
+
+  const sourceChart = new dc.RowChart('#source-chart');
+  sourceChart
+    .width(280).height(180)
+    .margins({top: 4, right: 10, bottom: 22, left: 4})
+    .dimension(sourceDim)
+    .group(sourceGroup)
+    .elasticX(true)
+    .gap(4)
+    .ordering(d => -d.value)
+    .colors(d3.scaleOrdinal()
+      .domain(['state-ag','local','news','federal'])
+      .range(['#047857','#B45309','#6B7280','#1E40AF']))
+    .colorAccessor(d => d.key)
+    .xAxis().ticks(4);
+
+  const timelineChart = new dc.BarChart('#timeline-chart');
+  timelineChart
+    .width(420).height(180)
+    .margins({top: 8, right: 16, bottom: 30, left: 32})
+    .dimension(dateDim)
+    .group(dateGroup)
+    .x(d3.scaleTime().domain([minDate, maxDate]))
+    .xUnits(d3.timeDays)
+    .elasticY(true)
+    .brushOn(true)
+    .colors('#4338CA')
+    .yAxis().ticks(4);
+
+  // Render
+  dc.renderAll();
+
+  // Wire reset buttons on the chart cards
+  document.querySelectorAll('.reset-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const c = btn.dataset.chart;
+      if (c === 'category') categoryChart.filterAll();
+      else if (c === 'source') sourceChart.filterAll();
+      else if (c === 'timeline') timelineChart.filterAll();
+      dc.redrawAll();
+      refreshDerivedViews();
+    });
+  });
+
+  // Update reset-button visibility when filters change
+  [categoryChart, sourceChart, timelineChart].forEach(ch => {
+    ch.on('filtered', () => {
+      const cName = ch === categoryChart ? 'category' : ch === sourceChart ? 'source' : 'timeline';
+      const btn = document.querySelector(`.reset-btn[data-chart="${cName}"]`);
+      const isFiltered = ch.filters().length > 0;
+      btn.classList.toggle('visible', isFiltered);
+      refreshDerivedViews();
+    });
+  });
+
+  // ============================================================
+  // Filters: state / county / days → applied via idDim filter
+  // ============================================================
+  function applyTopFilters() {
+    idDim.filterFunction(id => {
+      const a = MOCK_ALERTS.find(x => x.id === id);
+      if (!a) return false;
+      if (state.filterState && a.state && a.state !== state.filterState) return false;
+      // Federal alerts (state=null) pass any state filter
+      if (state.filterState && !a.state) {
+        // include federal items; they're national
+      }
+      if (state.filterCounty && a.county && a.county.toLowerCase() !== state.filterCounty.toLowerCase()) return false;
+      if (state.filterCounty && !a.county) return false;
+      const days = state.filterDays;
+      if (days) {
+        const age = (Date.now() - new Date(a.published).getTime()) / 86400000;
+        if (age > days) return false;
+      }
+      return true;
+    });
+    dc.redrawAll();
+    refreshDerivedViews();
+  }
+
+  // ============================================================
+  // Distance / zone helpers
+  // ============================================================
+  function haversineMi(lat1, lng1, lat2, lng2) {
+    const R = 3959;
+    const toRad = x => x * Math.PI / 180;
+    const dLat = toRad(lat2 - lat1), dLng = toRad(lng2 - lng1);
+    const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng/2)**2;
+    return 2 * R * Math.asin(Math.sqrt(a));
+  }
+
+  function zoneFor(alert) {
+    if (alert.latitude == null) return null;
+    const nearA = state.locA && haversineMi(alert.latitude, alert.longitude, state.locA.lat, state.locA.lng) <= state.radiusMi;
+    const nearB = state.locB && haversineMi(alert.latitude, alert.longitude, state.locB.lat, state.locB.lng) <= state.radiusMi;
+    if (nearA && nearB) return 'both';
+    if (nearA) return 'near-a';
+    if (nearB) return 'near-b';
+    return null;
+  }
+
+  // ============================================================
+  // Markers & overlays
+  // ============================================================
+  function renderMarkers() {
+    markerLayer.clearLayers();
+    const filtered = idDim.top(Infinity);
+    for (const a of filtered) {
+      if (a.latitude == null || a.longitude == null) continue;
+      const fallback = a.geo_resolution === 'state';
+      const icon = L.divIcon({
+        html: `<div class="vw-marker cat-${a.category} ${fallback ? 'state-fallback' : ''}"></div>`,
+        className: '', iconSize: [22,22], iconAnchor: [11,11],
+      });
+      const marker = L.marker([a.latitude, a.longitude], { icon }).addTo(markerLayer);
+      const zone = zoneFor(a);
+      const zoneBadge = zone ? `<span class="popup-meta" style="color: ${zone === 'near-a' ? '#2563EB' : zone === 'near-b' ? '#EA580C' : '#1F2937'}">${zone === 'both' ? 'in both zones' : zone === 'near-a' ? 'within '+state.radiusMi+'mi of A' : 'within '+state.radiusMi+'mi of B'}</span>` : '';
+      const popup = `
+        <div class="popup-title">${esc(a.title)}</div>
+        <div class="popup-meta">${esc(a.source)} · ${fmtDate(a.published)}${a.county ? ' · '+esc(a.county)+' Co.' : ''}</div>
+        ${zoneBadge}
+        <div>${esc(a.clinical_summary)}</div>
+        <a class="popup-link" href="${esc(a.url)}" target="_blank" rel="noopener noreferrer">View source →</a>`;
+      marker.bindPopup(popup, { maxWidth: 320 });
+      marker.on('click', () => highlightAlert(a.id));
+    }
+  }
+
+  function renderOverlays() {
+    overlayLayer.clearLayers();
+    if (state.locA) {
+      L.circle([state.locA.lat, state.locA.lng], {
+        radius: state.radiusMi * 1609.34,
+        color: '#2563EB', fillColor: '#2563EB', fillOpacity: 0.08, weight: 2,
+      }).addTo(overlayLayer);
+      L.marker([state.locA.lat, state.locA.lng], {
+        icon: L.divIcon({
+          html: '<div class="loc-marker a" data-label="A"></div>',
+          className: '', iconSize: [32,32], iconAnchor: [16,32],
+        }),
+        zIndexOffset: 1000,
+      }).addTo(overlayLayer);
+    }
+    if (state.locB) {
+      L.circle([state.locB.lat, state.locB.lng], {
+        radius: state.radiusMi * 1609.34,
+        color: '#EA580C', fillColor: '#EA580C', fillOpacity: 0.08, weight: 2,
+      }).addTo(overlayLayer);
+      L.marker([state.locB.lat, state.locB.lng], {
+        icon: L.divIcon({
+          html: '<div class="loc-marker b" data-label="B"></div>',
+          className: '', iconSize: [32,32], iconAnchor: [16,32],
+        }),
+        zIndexOffset: 1000,
+      }).addTo(overlayLayer);
+    }
+  }
+
+  // ============================================================
+  // List rendering
+  // ============================================================
+  function renderList() {
+    const filtered = idDim.top(Infinity);
+    filtered.sort((a, b) => new Date(b.published) - new Date(a.published));
+    const el = document.getElementById('results');
+    document.getElementById('list-counter').textContent =
+      filtered.length + ' result' + (filtered.length === 1 ? '' : 's');
+    if (filtered.length === 0) {
+      el.innerHTML = `<div style="padding:48px 24px; text-align:center; color:var(--ink-mute)"><div style="font-family:var(--font-display); font-weight:600; font-size:18px; color:var(--ink); margin-bottom:8px">No matches</div><div style="font-size:13.5px">Try clearing filters or widening the date range.</div></div>`;
+      return;
+    }
+    el.innerHTML = filtered.map(a => {
+      const zone = zoneFor(a);
+      const dateStr = fmtDate(a.published);
+      const chips = [];
+      if (a.category && a.category !== 'other')
+        chips.push(`<span class="chip cat-${a.category}">${esc(a.category)}</span>`);
+      if (a.county) chips.push(`<span class="chip county">${esc(a.county)} co.</span>`);
+      else if (a.state) chips.push(`<span class="chip">${esc(a.state)}</span>`);
+      for (const sp of (a.species || []).slice(0, 3))
+        chips.push(`<span class="chip">${esc(sp)}</span>`);
+      const zoneBadge = zone
+        ? `<span class="alert-loc-badge ${zone}">${zone === 'both' ? 'A & B' : zone === 'near-a' ? 'near A' : 'near B'}</span>`
+        : '';
+      return `
+        <article class="alert cat-${a.category}" data-id="${esc(a.id)}">
+          <div class="alert-meta">
+            <span class="alert-date">${dateStr}</span>
+            <span class="alert-source"><span class="source-dot ${a.source_type}"></span>${esc(a.source)}</span>
+            ${zoneBadge}
+          </div>
+          <h3 class="alert-title">
+            <a href="${esc(a.url)}" target="_blank" rel="noopener noreferrer">${esc(a.title)}</a>
+          </h3>
+          <p class="alert-summary">${esc(a.clinical_summary)}</p>
+          <div class="chips">${chips.join('')}</div>
+        </article>`;
+    }).join('');
+    el.querySelectorAll('.alert').forEach(node => {
+      node.addEventListener('click', e => {
+        if (e.target.tagName === 'A') return;
+        const id = node.dataset.id;
+        const a = MOCK_ALERTS.find(x => x.id === id);
+        if (a && a.latitude != null) map.flyTo([a.latitude, a.longitude], 7, { duration: 0.6 });
+      });
+    });
+  }
+
+  function highlightAlert(id) {
+    const node = document.querySelector(`.alert[data-id="${id}"]`);
+    if (node) {
+      node.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      node.classList.add('highlighted');
+      setTimeout(() => node.classList.remove('highlighted'), 1800);
+    }
+  }
+
+  // ============================================================
+  // Map stats
+  // ============================================================
+  function renderStats() {
+    const filtered = idDim.top(Infinity);
+    let nA = 0, nB = 0, nBoth = 0;
+    for (const a of filtered) {
+      const z = zoneFor(a);
+      if (z === 'near-a') nA++;
+      else if (z === 'near-b') nB++;
+      else if (z === 'both') { nA++; nB++; nBoth++; }
+    }
+    document.getElementById('stat-a').textContent = state.locA ? nA : '—';
+    document.getElementById('stat-b').textContent = state.locB ? nB : '—';
+    document.getElementById('stat-both').textContent = (state.locA && state.locB) ? nBoth : '—';
+
+    document.querySelectorAll('.stat-label').forEach((el, i) => {
+      const labels = [
+        `within ${state.radiusMi}mi of A`,
+        `within ${state.radiusMi}mi of B`,
+        'in both',
+      ];
+      el.textContent = labels[i];
+    });
+  }
+
+  function refreshDerivedViews() {
+    renderMarkers();
+    renderList();
+    renderStats();
+  }
+
+  // ============================================================
+  // Location selection UX
+  // ============================================================
+  const setABtn = document.getElementById('set-a-btn');
+  const setBBtn = document.getElementById('set-b-btn');
+  const clearBtn = document.getElementById('clear-locations');
+  const radiusInput = document.getElementById('radius-input');
+
+  function enterSetMode(which) {
+    state.setMode = which;
+    setABtn.classList.toggle('active', which === 'a');
+    setBBtn.classList.toggle('active', which === 'b');
+    setBBtn.classList.toggle('b', which === 'b');
+    mapEl.classList.remove('normal-cursor');
+  }
+  function exitSetMode() {
+    state.setMode = null;
+    setABtn.classList.remove('active');
+    setBBtn.classList.remove('active', 'b');
+    mapEl.classList.add('normal-cursor');
+  }
+  setABtn.addEventListener('click', () => enterSetMode(state.setMode === 'a' ? null : 'a'));
+  setBBtn.addEventListener('click', () => enterSetMode(state.setMode === 'b' ? null : 'b'));
+
+  map.on('click', e => {
+    if (!state.setMode) return;
+    const ll = { lat: e.latlng.lat, lng: e.latlng.lng };
+    if (state.setMode === 'a') {
+      state.locA = ll;
+      document.getElementById('loc-a-value').textContent = `${ll.lat.toFixed(3)}, ${ll.lng.toFixed(3)}`;
+      document.getElementById('loc-a-value').classList.remove('empty');
+      setABtn.textContent = 'Move A';
+      setBBtn.classList.remove('muted');
+    } else if (state.setMode === 'b') {
+      state.locB = ll;
+      document.getElementById('loc-b-value').textContent = `${ll.lat.toFixed(3)}, ${ll.lng.toFixed(3)}`;
+      document.getElementById('loc-b-value').classList.remove('empty');
+      setBBtn.textContent = 'Move B';
+    }
+    exitSetMode();
+    renderOverlays();
+    refreshDerivedViews();
+  });
+
+  clearBtn.addEventListener('click', () => {
+    state.locA = null; state.locB = null;
+    document.getElementById('loc-a-value').textContent = 'click "Set A", then click the map';
+    document.getElementById('loc-a-value').classList.add('empty');
+    document.getElementById('loc-b-value').textContent = 'optional · for comparison';
+    document.getElementById('loc-b-value').classList.add('empty');
+    setABtn.textContent = 'Set A';
+    setBBtn.textContent = 'Set B';
+    setBBtn.classList.add('muted');
+    exitSetMode();
+    renderOverlays();
+    refreshDerivedViews();
+  });
+
+  radiusInput.addEventListener('change', e => {
+    state.radiusMi = parseInt(e.target.value, 10);
+    renderOverlays();
+    refreshDerivedViews();
+  });
+
+  // ============================================================
+  // Top filter wiring
+  // ============================================================
+  document.getElementById('state-pills').addEventListener('click', e => {
+    const btn = e.target.closest('button.pill');
+    if (!btn) return;
+    document.querySelectorAll('.pill').forEach(b =>
+      b.setAttribute('aria-pressed', b === btn ? 'true' : 'false'));
+    state.filterState = btn.dataset.state;
+    applyTopFilters();
+  });
+  document.getElementById('county-input').addEventListener('input', e => {
+    state.filterCounty = e.target.value.trim();
+    applyTopFilters();
+  });
+  document.getElementById('days-input').addEventListener('change', e => {
+    state.filterDays = parseInt(e.target.value, 10);
+    applyTopFilters();
+  });
+
+  // ============================================================
+  // Utilities
+  // ============================================================
+  function fmtDate(iso) {
+    return new Date(iso).toLocaleDateString('en-US', {
+      year: 'numeric', month: 'short', day: '2-digit'
+    });
+  }
+  function esc(s) {
+    return String(s ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;')
+      .replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;');
+  }
+
+  // ============================================================
+  // Initial render
+  // ============================================================
+  applyTopFilters();
+  </script>
+</body>
+</html>
